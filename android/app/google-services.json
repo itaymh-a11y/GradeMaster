@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "351954469703",
+    "project_id": "grademaster-3db1b",
+    "storage_bucket": "grademaster-3db1b.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:351954469703:android:2bd1bb8354923f97900262",
+        "android_client_info": {
+          "package_name": "com.itay.grademaster"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "351954469703-hh5o5kh2k3i47mk0rmrnpg796vefmchk.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDFpDPS2LU_cpGcPpsQuM6lXqOCCAp3G38"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "351954469703-hh5o5kh2k3i47mk0rmrnpg796vefmchk.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
