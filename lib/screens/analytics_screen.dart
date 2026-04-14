@@ -51,7 +51,7 @@ class AnalyticsScreen extends StatelessWidget {
                   final sem = _semesterMetrics(effective);
                   final semesterCredits = _semesterCreditsDistribution(effective);
                   final currentGpa =
-                      computeCumulativeGpa(effective, CalculationMode.strict);
+                      computeCumulativeGpa(effective, CalculationMode.proportional);
                   final earnedCredits = effective
                       .where(
                         (c) => computeCourseNormalizedGrade(
@@ -400,6 +400,24 @@ Widget _buildInsightsCard(
                 onPressed: () => _showTargetGpaDialog(context, uid, targetGpa),
                 icon: const Icon(Icons.tune),
               ),
+              IconButton(
+                tooltip: 'יעד ממוצע סמסטר',
+                onPressed: courses.isEmpty
+                    ? null
+                    : () => _showSemesterTargetDialog(context, courses),
+                icon: const Icon(Icons.flag_outlined),
+              ),
+              IconButton(
+                tooltip: 'יעד ממוצע תואר דרך סמסטר',
+                onPressed: courses.isEmpty
+                    ? null
+                    : () => _showDegreeTargetBySemesterDialog(
+                          context,
+                          courses: courses,
+                          initialTarget: targetGpa,
+                        ),
+                icon: const Icon(Icons.auto_graph),
+              ),
             ],
           ),
         ],
@@ -447,6 +465,318 @@ Future<void> _showTargetGpaDialog(
       ],
     ),
   );
+}
+
+Future<void> _showSemesterTargetDialog(
+  BuildContext context,
+  List<Course> courses,
+) async {
+  final options = _buildSemesterOptions(courses);
+  if (options.isEmpty) {
+    return;
+  }
+  final targetController = TextEditingController();
+  var selected = options.first;
+  await showDialog<void>(
+    context: context,
+    builder: (ctx) => StatefulBuilder(
+      builder: (ctx, setState) => AlertDialog(
+        title: const Text('יעד ממוצע סמסטר'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            DropdownButtonFormField<_SemesterOption>(
+              initialValue: selected,
+              items: [
+                for (final o in options)
+                  DropdownMenuItem(value: o, child: Text(o.label)),
+              ],
+              onChanged: (value) {
+                if (value != null) {
+                  setState(() => selected = value);
+                }
+              },
+              decoration: const InputDecoration(
+                labelText: 'בחר סמסטר',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: targetController,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              decoration: const InputDecoration(
+                labelText: 'יעד ממוצע סמסטר (למשל 88)',
+                border: OutlineInputBorder(),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('ביטול')),
+          FilledButton(
+            onPressed: () {
+              final target = double.tryParse(
+                targetController.text.replaceAll(',', '.'),
+              );
+              if (target == null) {
+                return;
+              }
+              final insight = _computeSemesterTargetInsight(
+                courses: courses,
+                selected: selected,
+                targetPercent: target,
+              );
+              Navigator.pop(ctx);
+              showDialog<void>(
+                context: context,
+                builder: (resultCtx) => AlertDialog(
+                  title: Text('המלצה עבור ${selected.label}'),
+                  content: Text(insight),
+                  actions: [
+                    FilledButton(
+                      onPressed: () => Navigator.pop(resultCtx),
+                      child: const Text('סגור'),
+                    ),
+                  ],
+                ),
+              );
+            },
+            child: const Text('חשב'),
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
+Future<void> _showDegreeTargetBySemesterDialog(
+  BuildContext context, {
+  required List<Course> courses,
+  required double? initialTarget,
+}) async {
+  final options = _buildSemesterOptions(courses);
+  if (options.isEmpty) {
+    return;
+  }
+  final targetController = TextEditingController(
+    text: initialTarget?.toStringAsFixed(2) ?? '',
+  );
+  var selected = options.first;
+  await showDialog<void>(
+    context: context,
+    builder: (ctx) => StatefulBuilder(
+      builder: (ctx, setState) => AlertDialog(
+        title: const Text('יעד ממוצע תואר דרך סמסטר'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: targetController,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              decoration: const InputDecoration(
+                labelText: 'יעד ממוצע תואר (למשל 90)',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 12),
+            DropdownButtonFormField<_SemesterOption>(
+              initialValue: selected,
+              items: [
+                for (final o in options)
+                  DropdownMenuItem(value: o, child: Text(o.label)),
+              ],
+              onChanged: (value) {
+                if (value != null) {
+                  setState(() => selected = value);
+                }
+              },
+              decoration: const InputDecoration(
+                labelText: 'בחר סמסטר',
+                border: OutlineInputBorder(),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('ביטול')),
+          FilledButton(
+            onPressed: () {
+              final target = double.tryParse(
+                targetController.text.replaceAll(',', '.'),
+              );
+              if (target == null) {
+                return;
+              }
+              final insight = _computeDegreeTargetViaSemesterInsight(
+                courses: courses,
+                selected: selected,
+                degreeTargetPercent: target,
+              );
+              Navigator.pop(ctx);
+              showDialog<void>(
+                context: context,
+                builder: (resultCtx) => AlertDialog(
+                  title: const Text('תוצאה'),
+                  content: Text(insight),
+                  actions: [
+                    FilledButton(
+                      onPressed: () => Navigator.pop(resultCtx),
+                      child: const Text('סגור'),
+                    ),
+                  ],
+                ),
+              );
+            },
+            child: const Text('חשב'),
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
+String _computeSemesterTargetInsight({
+  required List<Course> courses,
+  required _SemesterOption selected,
+  required double targetPercent,
+}) {
+  final semesterCourses = courses
+      .where(
+        (c) =>
+            c.academicYear == selected.year &&
+            c.semester == selected.semester &&
+            !c.isPassFail &&
+            c.credits > 0,
+      )
+      .toList();
+  if (semesterCourses.isEmpty) {
+    return 'אין קורסים עם נ"ז בסמסטר שנבחר.';
+  }
+  final totalCredits = semesterCourses.fold<double>(0, (s, c) => s + c.credits);
+
+  // "Current semester average" is יחסית בלבד: include only fully closed courses.
+  final completedCourses = semesterCourses
+      .where((c) => computeStrictClosedPortion(c.rootNode) >= 0.999999)
+      .toList();
+  final completedCredits = completedCourses.fold<double>(0, (s, c) => s + c.credits);
+  final completedWeighted = completedCourses.fold<double>(0, (s, c) {
+    final pct =
+        ((computeCourseNormalizedGrade(c, CalculationMode.proportional) ?? 0.0) * 100)
+            .clamp(0.0, 200.0);
+    return s + (c.credits * pct);
+  });
+  final currentAvg = completedCredits == 0 ? 0.0 : completedWeighted / completedCredits;
+
+  // Build improvement plan from heaviest courses first.
+  final currentByCourse = <Course, double>{};
+  var currentWeightedAll = 0.0;
+  for (final c in semesterCourses) {
+    final pct =
+        ((computeCourseNormalizedGrade(c, CalculationMode.proportional) ?? 0.0) * 100)
+            .clamp(0.0, 200.0);
+    currentByCourse[c] = pct;
+    currentWeightedAll += c.credits * pct;
+  }
+
+  final requiredWeighted = (targetPercent * totalCredits) - currentWeightedAll;
+  if (requiredWeighted <= 0.0) {
+    return 'ממוצע סמסטר נוכחי (רק קורסים שהושלמו 100%): ${currentAvg.toStringAsFixed(2)}.\n'
+        'כבר הגעת ליעד ${targetPercent.toStringAsFixed(2)} לפי המצב הנוכחי.';
+  }
+
+  var remainingWeighted = requiredWeighted;
+  final sorted = [...semesterCourses]..sort((a, b) => b.credits.compareTo(a.credits));
+  final lines = <String>[];
+  for (final c in sorted) {
+    if (remainingWeighted <= 0.0001) {
+      break;
+    }
+    final currentPct = currentByCourse[c]!;
+    final maxPct = _maxCoursePercent(c);
+    final maxIncrease = (maxPct - currentPct).clamp(0.0, 200.0);
+    if (maxIncrease <= 0) {
+      continue;
+    }
+    final maxWeightedGain = maxIncrease * c.credits;
+    final usedWeighted = remainingWeighted <= maxWeightedGain
+        ? remainingWeighted
+        : maxWeightedGain;
+    final neededIncrease = usedWeighted / c.credits;
+    final neededTarget = currentPct + neededIncrease;
+    lines.add(
+      '• ${c.name}: שיפור ${neededIncrease.toStringAsFixed(2)} נק׳ (יעד קורס ${neededTarget.toStringAsFixed(2)})',
+    );
+    remainingWeighted -= usedWeighted;
+  }
+
+  if (lines.isEmpty) {
+    return 'ממוצע סמסטר נוכחי (רק קורסים שהושלמו 100%): ${currentAvg.toStringAsFixed(2)}.\n'
+        'לא נמצא מרחב שיפור בקורסי הסמסטר.';
+  }
+
+  if (remainingWeighted > 0.01) {
+    return 'ממוצע סמסטר נוכחי (רק קורסים שהושלמו 100%): ${currentAvg.toStringAsFixed(2)}.\n'
+        'גם אם משפרים קודם את הקורסים הכבדים עד המקסימום, לא ניתן להגיע ליעד ${targetPercent.toStringAsFixed(2)}.\n'
+        '${lines.join('\n')}';
+  }
+
+  return 'ממוצע סמסטר נוכחי (רק קורסים שהושלמו 100%): ${currentAvg.toStringAsFixed(2)}.\n'
+      'כדי להגיע ליעד ${targetPercent.toStringAsFixed(2)} שפר לפי סדר עדיפות (נ"ז גבוה תחילה):\n'
+      '${lines.join('\n')}';
+}
+
+String _computeDegreeTargetViaSemesterInsight({
+  required List<Course> courses,
+  required _SemesterOption selected,
+  required double degreeTargetPercent,
+}) {
+  final relevant = courses.where((c) => !c.isPassFail && c.credits > 0).toList();
+  final semesterCourses = relevant
+      .where(
+        (c) => c.academicYear == selected.year && c.semester == selected.semester,
+      )
+      .toList();
+  if (semesterCourses.isEmpty) {
+    return 'בסמסטר שנבחר אין קורסים עם נ"ז לחישוב.';
+  }
+
+  final semesterCredits = semesterCourses.fold<double>(0, (s, c) => s + c.credits);
+  double fixedWeightedOutside = 0.0;
+  double fixedCreditsOutside = 0.0;
+  for (final c in relevant) {
+    if (c.academicYear == selected.year && c.semester == selected.semester) {
+      continue;
+    }
+    final normalized = computeCourseNormalizedGrade(c, CalculationMode.proportional);
+    if (normalized == null) {
+      continue;
+    }
+    final pct = (normalized * 100).clamp(0.0, 200.0);
+    fixedWeightedOutside += c.credits * pct;
+    fixedCreditsOutside += c.credits;
+  }
+
+  final totalCredits = fixedCreditsOutside + semesterCredits;
+  final requiredSemesterAvg =
+      ((degreeTargetPercent * totalCredits) - fixedWeightedOutside) / semesterCredits;
+  final maxPossibleSemesterAvg = _maxSemesterAveragePercent(semesterCourses);
+
+  if (requiredSemesterAvg <= 0) {
+    return 'על בסיס נ"ז הסמסטר (${semesterCredits.toStringAsFixed(1)}), '
+        'כבר אין צורך בשיפור נוסף כדי לעמוד ביעד ${degreeTargetPercent.toStringAsFixed(2)}.';
+  }
+  if (requiredSemesterAvg > maxPossibleSemesterAvg + 0.01) {
+    return 'על בסיס נ"ז הסמסטר (${semesterCredits.toStringAsFixed(1)}), '
+        'נדרש ממוצע ${requiredSemesterAvg.toStringAsFixed(2)} בסמסטר ${selected.label} '
+        'כדי להגיע ליעד ${degreeTargetPercent.toStringAsFixed(2)}. '
+        'המקסימום האפשרי בסמסטר הזה הוא ${maxPossibleSemesterAvg.toStringAsFixed(2)}, '
+        'ולכן היעד לא אפשרי דרך הסמסטר הזה בלבד.';
+  }
+  return 'על בסיס נ"ז הסמסטר (${semesterCredits.toStringAsFixed(1)}), '
+      'הממוצע הסמסטריאלי הנדרש בסמסטר ${selected.label} '
+      'כדי להגיע ליעד ממוצע תואר ${degreeTargetPercent.toStringAsFixed(2)} '
+      'הוא ${requiredSemesterAvg.toStringAsFixed(2)}.';
 }
 
 bool _hasMoedBImprovement(Course course) {
@@ -501,6 +831,58 @@ final class _SemesterCreditSlice {
   final Color color;
 }
 
+final class _SemesterOption {
+  const _SemesterOption({
+    required this.year,
+    required this.semester,
+    required this.label,
+  });
+
+  final AcademicYear year;
+  final SemesterKind semester;
+  final String label;
+}
+
+List<_SemesterOption> _buildSemesterOptions(List<Course> courses) {
+  final map = <String, _SemesterOption>{};
+  for (final c in courses) {
+    final key = '${c.academicYear.name}_${c.semester.name}';
+    map.putIfAbsent(
+      key,
+      () => _SemesterOption(
+        year: c.academicYear,
+        semester: c.semester,
+        label: '${c.academicYear.heLabel} ${c.semester.heLabel}',
+      ),
+    );
+  }
+  final options = map.values.toList()
+    ..sort((a, b) {
+      final yearCmp = a.year.index.compareTo(b.year.index);
+      if (yearCmp != 0) {
+        return yearCmp;
+      }
+      return _semesterOrder(a.semester).compareTo(_semesterOrder(b.semester));
+    });
+  return options;
+}
+
+double _maxSemesterAveragePercent(List<Course> courses) {
+  final credits = courses.fold<double>(0, (s, c) => s + c.credits);
+  if (credits <= 0) {
+    return 0;
+  }
+  var weighted = 0.0;
+  for (final c in courses) {
+    weighted += c.credits * (100 + c.finalBonus).clamp(0.0, 200.0);
+  }
+  return weighted / credits;
+}
+
+double _maxCoursePercent(Course course) {
+  return (100 + course.finalBonus).clamp(0.0, 200.0);
+}
+
 List<_SemesterMetric> _semesterMetrics(List<Course> courses) {
   final grouped = <String, List<Course>>{};
   for (final c in courses) {
@@ -526,7 +908,7 @@ List<_SemesterMetric> _semesterMetrics(List<Course> courses) {
     final year = AcademicYear.values.byName(parts[0]);
     final sem = SemesterKind.values.byName(parts[1]);
     final gpa =
-        computeWeightedGpa(grouped[key]!, CalculationMode.strict) ?? 0.0;
+        computeWeightedGpa(grouped[key]!, CalculationMode.proportional) ?? 0.0;
     out.add(
       _SemesterMetric(
         label: '${year.heLabel} ${sem.heLabel}',

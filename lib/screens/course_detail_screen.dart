@@ -81,7 +81,7 @@ class CourseDetailScreen extends StatefulWidget {
 }
 
 class _CourseDetailScreenState extends State<CourseDetailScreen> {
-  CalculationMode _mode = CalculationMode.strict;
+  static const CalculationMode _mode = CalculationMode.proportional;
   bool _writing = false;
   double? _targetGradePercent;
 
@@ -304,35 +304,12 @@ class _CourseDetailScreenState extends State<CourseDetailScreen> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-                    child: SegmentedButton<CalculationMode>(
-                      segments: const [
-                        ButtonSegment(
-                          value: CalculationMode.strict,
-                          label: Text('Strict'),
-                          tooltip: 'חסרים נחשבים כ-0',
-                        ),
-                        ButtonSegment(
-                          value: CalculationMode.proportional,
-                          label: Text('יחסי'),
-                          tooltip: 'רק מה שהוזן',
-                        ),
-                      ],
-                      emptySelectionAllowed: false,
-                      showSelectedIcon: false,
-                      selected: <CalculationMode>{_mode},
-                      onSelectionChanged: (s) {
-                        setState(() => _mode = s.first);
-                      },
-                    ),
-                  ),
-                  Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16),
                     child: Card(
                       child: ListTile(
                         title: const Text('ציון מצטבר בקורס'),
                         subtitle: Text(
-                          '${_mode == CalculationMode.strict ? 'Strict: חסרים כ-0' : 'יחסי: רק רכיבים עם ציון'}'
+                          'יחסי: רק רכיבים עם ציון'
                           '${effectiveCourse.finalBonus != 0 ? '\n$baseGradeLabel + ${effectiveCourse.finalBonus.toStringAsFixed(2)}' : ''}',
                         ),
                         trailing: Text(
@@ -360,7 +337,7 @@ class _CourseDetailScreenState extends State<CourseDetailScreen> {
                         ),
                         subtitle: Text(
                           targetInsight?.message ??
-                              'הגדר יעד כדי לקבל חישוב "כמה צריך לקבל" (Strict).',
+                              'הגדר יעד כדי לקבל חישוב "כמה צריך לקבל".',
                         ),
                         trailing: FilledButton.tonalIcon(
                           onPressed: () => _showTargetDialog(),
@@ -817,7 +794,7 @@ _TargetInsight? _computeTargetInsight(Course course, double? targetPercent) {
   }
 
   final currentNorm =
-      computeCourseNormalizedGrade(course, CalculationMode.strict) ?? 0.0;
+      computeCourseNormalizedGrade(course, CalculationMode.proportional) ?? 0.0;
   final targetNorm = targetPercent / 100.0;
   final gapNorm = targetNorm - currentNorm;
   if (gapNorm <= 0) {

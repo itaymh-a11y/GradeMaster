@@ -27,7 +27,6 @@ class DashboardScreen extends StatefulWidget {
 }
 
 class _DashboardScreenState extends State<DashboardScreen> {
-  CalculationMode _mode = CalculationMode.strict;
   AcademicYear? _yearFilter;
   SemesterKind? _semesterFilter;
 
@@ -168,7 +167,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       return true;
                     }).toList();
                     filtered.sort(_compareCourseChronological);
-                    final dashboardGpa = computeCumulativeGpa(effectiveCourses, _mode);
+                    const mode = CalculationMode.proportional;
+                    final dashboardGpa = computeCumulativeGpa(effectiveCourses, mode);
                     final accumulatedCredits = effectiveCourses
                         .where(
                           (c) =>
@@ -185,7 +185,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     final progressValue = targetCredits == null || targetCredits <= 0
                         ? null
                         : (accumulatedCredits / targetCredits).clamp(0.0, 1.0);
-                    final listItems = _buildDashboardItems(filtered, _mode);
+                    final listItems = _buildDashboardItems(filtered, mode);
                     return Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
@@ -197,26 +197,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           style: Theme.of(context).textTheme.titleMedium,
                         ),
                       ),
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-                      child: SegmentedButton<CalculationMode>(
-                        segments: const [
-                          ButtonSegment(
-                            value: CalculationMode.strict,
-                            label: Text('Strict'),
-                          ),
-                          ButtonSegment(
-                            value: CalculationMode.proportional,
-                            label: Text('יחסי'),
-                          ),
-                        ],
-                        selected: <CalculationMode>{_mode},
-                        emptySelectionAllowed: false,
-                        showSelectedIcon: false,
-                        onSelectionChanged: (s) =>
-                            setState(() => _mode = s.first),
-                      ),
-                    ),
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16),
                       child: Row(
@@ -296,7 +276,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             ),
                           ),
                           subtitle: Text(
-                            '${_mode == CalculationMode.strict ? 'מחושב במצב Strict' : 'מחושב במצב יחסי'}'
+                            'מחושב במצב יחסי'
                             '${(_yearFilter != null || _semesterFilter != null) ? '\nמציג ${filtered.length} קורסים מתוך ${effectiveCourses.length}' : ''}',
                             style: const TextStyle(color: Colors.white70),
                           ),
@@ -398,11 +378,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           final course = row.course!;
                           final normalized = computeCourseNormalizedGrade(
                             course,
-                            _mode,
+                            mode,
                           );
                           final baseNormalized = computeNormalizedGrade(
                             course.rootNode,
-                            _mode,
+                            mode,
                             moedBPolicy: course.moedBPolicy,
                           );
                           final percentLabel = formatGradePercent(normalized);

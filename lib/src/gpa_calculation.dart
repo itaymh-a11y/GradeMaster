@@ -14,14 +14,15 @@ double? computeCourseNormalizedGrade(Course course, CalculationMode mode) {
   return base + (course.finalBonus / 100.0);
 }
 
-/// Weighted GPA on the **0–1** normalized scale (same as [computeNormalizedGrade] for a course).
+/// Weighted degree average on the **0–1** normalized scale.
 ///
-/// - **Pass/Fail** courses are skipped entirely (they do not affect numerator or denominator).
-/// - Courses with **נ״ז 0** are skipped for GPA.
-/// - **Proportional:** courses whose tree yields `null` (no data) are skipped.
-/// - **Strict:** every non–Pass/Fail course with credits > 0 contributes.
+/// Rules:
+/// - Pass/Fail courses are skipped.
+/// - Courses with credits <= 0 are skipped.
+/// - Only courses with 100% closed components are included.
+/// - Course grade is always calculated proportionally.
 ///
-/// Returns `null` if there is nothing to average (no contributing courses).
+/// Returns `null` when no course can contribute.
 double? computeWeightedGpa(Iterable<Course> courses, CalculationMode mode) {
   var sumCredits = 0.0;
   var sumWeighted = 0.0;
@@ -34,7 +35,14 @@ double? computeWeightedGpa(Iterable<Course> courses, CalculationMode mode) {
       continue;
     }
 
-    final normalized = computeCourseNormalizedGrade(course, mode);
+    if (computeStrictClosedPortion(course.rootNode) < 0.999999) {
+      continue;
+    }
+
+    final normalized = computeCourseNormalizedGrade(
+      course,
+      CalculationMode.proportional,
+    );
     if (normalized == null) {
       continue;
     }
