@@ -3,16 +3,39 @@ import 'package:firebase_auth/firebase_auth.dart';
 
 /// Email/password authentication and Firestore user profile bootstrap.
 class AuthService {
-  AuthService({FirebaseAuth? auth, FirebaseFirestore? firestore})
-    : _auth = auth ?? FirebaseAuth.instance,
+  static const String defaultAdminUid = 'I4SDf49xt1gwaySstJy9QWQOnuA3';
+
+  AuthService({
+    FirebaseAuth? auth,
+    FirebaseFirestore? firestore,
+    String? adminUid,
+  }) : _adminUid =
+           (adminUid ??
+                   const String.fromEnvironment(
+                     'ADMIN_UID',
+                     defaultValue: defaultAdminUid,
+                   ))
+               .trim(),
+    _auth = auth ?? FirebaseAuth.instance,
       _firestore = firestore ?? FirebaseFirestore.instance;
 
+  final String _adminUid;
   final FirebaseAuth _auth;
   final FirebaseFirestore _firestore;
 
   Stream<User?> get authStateChanges => _auth.authStateChanges();
 
   User? get currentUser => _auth.currentUser;
+
+  /// UID מוגדר ב־`ADMIN_UID` / ברירת מחדל (ללא רווחים).
+  String get configuredAdminUid => _adminUid;
+
+  /// האם [uid] הוא אדמין "קשיח" (לא תלוי ב־Firestore `isAdmin`).
+  bool matchesConfiguredAdminUid(String? uid) {
+    return uid != null && _adminUid.isNotEmpty && uid == _adminUid;
+  }
+
+  bool isAdmin() => matchesConfiguredAdminUid(_auth.currentUser?.uid);
 
   Future<void> signIn({required String email, required String password}) async {
     await _auth.signInWithEmailAndPassword(

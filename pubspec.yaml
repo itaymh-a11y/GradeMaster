@@ -53,7 +53,7 @@ dev_dependencies:
   flutter_lints: ^6.0.0
   firebase_auth_mocks: ^0.15.1
   fake_cloud_firestore: ^4.1.0+1
-  flutter_launcher_icons: ^0.14.4
+  flutter_launcher_icons: ^0.13.1
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
@@ -66,12 +66,7 @@ flutter:
   # the material Icons class.
   uses-material-design: true
   assets:
-    - assets/logo.png
-
-flutter_launcher_icons:
-  android: true
-  ios: true
-  image_path: assets/logo.png
+    - assets/images/logo.png
 
   # To add assets to your application, add an assets section, like this:
   # assets:
@@ -103,3 +98,11 @@ flutter_launcher_icons:
   #
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/to/font-from-package
+
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "assets/images/logo.png"
+  min_sdk_android: 21
+  web:
+    generate: true

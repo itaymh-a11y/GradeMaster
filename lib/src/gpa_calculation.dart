@@ -3,6 +3,9 @@ import 'course.dart';
 import 'grade_node.dart';
 
 double? computeCourseNormalizedGrade(Course course, CalculationMode mode) {
+  if (course.fastGrading && course.finalGradeOverride != null) {
+    return (course.finalGradeOverride! / 100.0) + (course.finalBonus / 100.0);
+  }
   final base = computeNormalizedGrade(
     course.rootNode,
     mode,
@@ -35,7 +38,11 @@ double? computeWeightedGpa(Iterable<Course> courses, CalculationMode mode) {
       continue;
     }
 
-    if (computeStrictClosedPortion(course.rootNode) < 0.999999) {
+    final closedEnough =
+        (course.fastGrading && course.finalGradeOverride != null) ||
+        (!course.fastGrading &&
+            computeStrictClosedPortion(course.rootNode) >= 0.999999);
+    if (!closedEnough) {
       continue;
     }
 

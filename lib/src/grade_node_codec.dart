@@ -85,7 +85,55 @@ GradeNode gradeNodeFromMap(Map<String, dynamic> raw) {
   throw FormatException('Unknown GradeNode type: $type');
 }
 
+/// Independent copy of the tree (safe before mutating a user copy).
+GradeNode deepCopyGradeNode(GradeNode node) {
+  return gradeNodeFromMap(gradeNodeToMap(node));
+}
+
+/// Strips scores and Moed B state so a [Course] editor state can be stored as a public template.
+GradeNode stripScoresForTemplate(GradeNode node) {
+  return switch (node) {
+    GradeLeaf(:final id, :final name, :final maxScore) => GradeLeaf(
+      id: id,
+      name: name,
+      maxScore: maxScore,
+    ),
+    GradeBranch(
+      :final id,
+      :final name,
+      :final equalWeightChildren,
+      :final children,
+    ) =>
+      GradeBranch(
+        id: id,
+        name: name,
+        equalWeightChildren: equalWeightChildren,
+        children: [
+          for (final wc in children)
+            WeightedChild(
+              weight: wc.weight,
+              node: stripScoresForTemplate(wc.node),
+            ),
+        ],
+      ),
+  };
+}
+
 /// Default empty tree for a new course (strict → 0%, proportional → no data).
 GradeNode emptyCourseRootNode() {
   return GradeBranch(id: 'root', name: 'שורש', children: const []);
+}
+
+/// Root for quick final-grade input: one direct 100-point leaf.
+GradeNode fastGradingRootNode() {
+  return GradeBranch(
+    id: 'root',
+    name: 'שורש',
+    children: [
+      WeightedChild(
+        weight: 100,
+        node: GradeLeaf(id: 'final_grade', name: 'ציון סופי', maxScore: 100),
+      ),
+    ],
+  );
 }

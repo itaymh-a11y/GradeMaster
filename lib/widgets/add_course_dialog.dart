@@ -27,6 +27,7 @@ class _AddCourseDialogBodyState extends State<_AddCourseDialogBody> {
   AcademicYear _year = AcademicYear.a;
   SemesterKind _semester = SemesterKind.a;
   bool _saving = false;
+  bool _fastGrading = false;
 
   @override
   void dispose() {
@@ -58,6 +59,7 @@ class _AddCourseDialogBodyState extends State<_AddCourseDialogBody> {
         academicYear: _year,
         semester: _semester,
         finalBonus: finalBonus,
+        fastGrading: _fastGrading,
       );
       if (!mounted) {
         return;
@@ -152,6 +154,16 @@ class _AddCourseDialogBodyState extends State<_AddCourseDialogBody> {
                     ? null
                     : (v) {
                         setState(() => _passFail = v);
+                      },
+              ),
+              SwitchListTile(
+                title: const Text('Fast Grading (ציון סופי בלבד)'),
+                subtitle: const Text('יוצר קורס עם הזנה מהירה של ציון אחד'),
+                value: _fastGrading,
+                onChanged: _saving
+                    ? null
+                    : (v) {
+                        setState(() => _fastGrading = v);
                       },
               ),
               const SizedBox(height: 8),

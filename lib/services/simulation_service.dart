@@ -55,7 +55,7 @@ class SimulationService extends ChangeNotifier {
     if (!_enabled) {
       return;
     }
-    _simulatedCourses[base.id] = Course(
+    _simulatedCourses[base.id] = UserCourse(
       id: base.id,
       name: base.name,
       credits: base.credits,
@@ -65,6 +65,9 @@ class SimulationService extends ChangeNotifier {
       semester: base.semester,
       finalBonus: base.finalBonus,
       moedBPolicy: base.moedBPolicy,
+      fastGrading: base.fastGrading,
+      templateId: base.templateId,
+      finalGradeOverride: base.finalGradeOverride,
     );
     notifyListeners();
   }

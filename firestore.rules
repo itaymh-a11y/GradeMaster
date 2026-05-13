@@ -1,0 +1,91 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // אדמין לפי UID קשיח (כמו ב־AuthService) או שדה isAdmin ב־users/{uid}
+    function isHardcodedAdmin() {
+      return request.auth != null &&
+        request.auth.uid == "I4SDf49xt1gwaySstJy9QWQOnuA3";
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function userIsFirestoreAdmin() {
+      return isSignedIn() &&
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
+    }
+
+    function isAppAdmin() {
+      return isHardcodedAdmin() || userIsFirestoreAdmin();
+    }
+
+    function userProfileData(uid) {
+      return get(/databases/$(database)/documents/users/$(uid)).data;
+    }
+
+    /// תבנית קורס במוסד של הסטודנט (לאפשר לאדמין ליצור קורס מקושר לתבנית).
+    function institutionCourseTemplateExists(uid, templateDocId) {
+      return exists(/databases/$(database)/documents/users/$(uid)) &&
+        userProfileData(uid).institutionId is string &&
+        userProfileData(uid).departmentId is string &&
+        exists(/databases/$(database)/documents/institutions/$(userProfileData(uid).institutionId)/departments/$(userProfileData(uid).departmentId)/course_templates/$(templateDocId));
+    }
+
+    function isTemplatePublished(templateId) {
+      return get(/databases/$(database)/documents/degreeTemplates/$(templateId)).data.status == "published";
+    }
+
+    // --- משתמש וקורסים פרטיים ---
+    match /users/{userId} {
+      allow read: if isSignedIn() && (request.auth.uid == userId || isAppAdmin());
+      allow create, update, delete: if isSignedIn() && request.auth.uid == userId;
+
+      match /courses/{courseId} {
+        allow read: if isSignedIn() && (request.auth.uid == userId || isAppAdmin());
+        allow create: if (isSignedIn() && request.auth.uid == userId) ||
+          (isAppAdmin() &&
+            request.resource.data.templateId is string &&
+            institutionCourseTemplateExists(userId, request.resource.data.templateId));
+        allow update: if (isSignedIn() && request.auth.uid == userId) ||
+          (isAppAdmin() &&
+            resource.data.templateId is string &&
+            institutionCourseTemplateExists(userId, resource.data.templateId));
+        allow delete: if (isSignedIn() && request.auth.uid == userId) ||
+          (isAppAdmin() &&
+            exists(/databases/$(database)/documents/users/$(userId)) &&
+            resource.data.templateId is string &&
+            userProfileData(userId).institutionId is string);
+      }
+    }
+
+    // --- תבניות תואר ציבוריות: כתיבה רק לאדמין; קריאה למחוברים בתבניות published או לאדמין (כולל טיוטות) ---
+    match /degreeTemplates/{templateId} {
+      allow create, update, delete: if isAppAdmin();
+      allow read: if isAppAdmin() ||
+        (isSignedIn() && resource.data.status == "published");
+
+      match /courses/{courseId} {
+        allow create, update, delete: if isAppAdmin();
+        allow read: if isAppAdmin() ||
+          (isSignedIn() && isTemplatePublished(templateId));
+      }
+    }
+
+    // --- אונבורדינג: קריאה למוסדות / חוגים / תבניות קורס במוסד ---
+    match /institutions/{institutionId} {
+      allow read: if isSignedIn();
+
+      match /departments/{departmentId} {
+        allow read: if isSignedIn();
+        allow create, update, delete: if isAppAdmin();
+
+        match /course_templates/{templateId} {
+          allow read: if isSignedIn();
+          allow create, update, delete: if isAppAdmin();
+        }
+      }
+    }
+  }
+}

@@ -7,8 +7,11 @@ import '../services/auth_service.dart';
 import '../services/course_firestore_service.dart';
 import '../services/simulation_service.dart';
 import '../utils/grade_format.dart';
+import 'admin_templates_screen.dart';
+import 'institution_templates_admin_screen.dart';
 import 'analytics_screen.dart';
 import 'course_detail_screen.dart';
+import 'template_selection_screen.dart';
 import '../widgets/add_course_dialog.dart';
 
 String _formatCredits(double c) {
@@ -36,6 +39,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final simulation = context.watch<SimulationService>();
     final email = user?.email ?? '';
     final uid = user?.uid;
+    final auth = context.read<AuthService>();
+    final isAdminUid = auth.isAdmin();
     final simBarColor = simulation.enabled ? Colors.deepPurple : null;
     final simTextColor = simulation.enabled ? Colors.white : null;
 
@@ -47,7 +52,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ClipRRect(
               borderRadius: BorderRadius.circular(6),
               child: Image.asset(
-                'assets/logo.png',
+                'assets/images/logo.png',
                 width: 28,
                 height: 28,
                 fit: BoxFit.cover,
@@ -76,6 +81,51 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ),
             onPressed: () => simulation.toggle(),
           ),
+          IconButton(
+            tooltip: 'בחר תואר',
+            icon: const Icon(Icons.library_books_outlined),
+            onPressed: () {
+              Navigator.of(context).push<void>(
+                MaterialPageRoute<void>(
+                  builder: (_) => const TemplateSelectionScreen(),
+                ),
+              );
+            },
+          ),
+          if (isAdminUid)
+            IconButton(
+              tooltip: 'ניהול תבניות',
+              icon: const Icon(Icons.admin_panel_settings_outlined),
+              onPressed: () {
+                Navigator.of(context).push<void>(
+                  MaterialPageRoute<void>(
+                    builder: (_) => const AdminTemplatesScreen(),
+                  ),
+                );
+              },
+            ),
+          if (uid != null)
+            StreamBuilder<UserModel>(
+              stream: context.read<CourseFirestoreService>().watchUserModel(uid),
+              builder: (context, snap) {
+                final profile = snap.data ?? UserModel(uid: uid);
+                final showInstAdmin = isAdminUid || profile.isAdmin;
+                if (!showInstAdmin) {
+                  return const SizedBox.shrink();
+                }
+                return IconButton(
+                  tooltip: 'תבניות מוסד / חוג',
+                  icon: const Icon(Icons.apartment_outlined),
+                  onPressed: () {
+                    Navigator.of(context).push<void>(
+                      MaterialPageRoute<void>(
+                        builder: (_) => const InstitutionTemplatesAdminScreen(),
+                      ),
+                    );
+                  },
+                );
+              },
+            ),
           IconButton(
             tooltip: 'סטטיסטיקה',
             icon: const Icon(Icons.analytics_outlined),
@@ -139,7 +189,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           ),
                           const SizedBox(height: 8),
                           Text(
-                            'עדיין אין קורסים. לחץ על + כדי להוסיף.',
+                            'עדיין אין קורסים. לחץ על + כדי להוסיף או בחר תואר מתבנית.',
                             style: Theme.of(context).textTheme.bodyLarge
                                 ?.copyWith(
                                   color: Theme.of(
@@ -147,6 +197,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                   ).colorScheme.onSurfaceVariant,
                                 ),
                             textAlign: TextAlign.center,
+                          ),
+                          const SizedBox(height: 12),
+                          OutlinedButton.icon(
+                            onPressed: () {
+                              Navigator.of(context).push<void>(
+                                MaterialPageRoute<void>(
+                                  builder: (_) => const TemplateSelectionScreen(),
+                                ),
+                              );
+                            },
+                            icon: const Icon(Icons.library_books_outlined),
+                            label: const Text('בחר תואר'),
                           ),
                         ],
                       ),
@@ -413,7 +475,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                 Navigator.of(context).push<void>(
                                   MaterialPageRoute<void>(
                                     builder: (_) =>
-                                        CourseDetailScreen(courseId: course.id),
+                                        CourseDetailScreen.user(courseId: course.id),
                                   ),
                                 );
                               },
@@ -712,6 +774,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     var year = course.academicYear;
     var semester = course.semester;
     var moedBPolicy = course.moedBPolicy;
+    var fastGrading = course.fastGrading;
 
     await showDialog<void>(
       context: context,
@@ -822,6 +885,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       }
                     },
                   ),
+                  const SizedBox(height: 8),
+                  SwitchListTile(
+                    title: const Text('Fast Grading (ציון סופי בלבד)'),
+                    value: fastGrading,
+                    onChanged: (v) => setState(() => fastGrading = v),
+                  ),
                 ],
               ),
             ),
@@ -855,6 +924,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         semester: semester,
                         finalBonus: bonus,
                         moedBPolicy: moedBPolicy,
+                        fastGrading: fastGrading,
                       ),
                     );
                   } else {
@@ -868,6 +938,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       semester: semester,
                       finalBonus: bonus,
                       moedBPolicy: moedBPolicy,
+                      fastGrading: fastGrading,
                     );
                   }
                   if (ctx.mounted) {
